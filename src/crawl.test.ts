@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { normalizeURL, getHeadingFromHTML, getFirstParagraphFromHTML } from './crawl.js'
+import { normalizeURL, getHeadingFromHTML, getFirstParagraphFromHTML, getURLsFromHTML, getImagesFromHTML } from './crawl.js'
 
 test('normalize 1st url: https://www.boot.dev/blog/path/', () => {
   const url = 'https://www.boot.dev/blog/path/'
@@ -61,6 +61,53 @@ test('get first paragraph from html: main found, return text content', () => {
   expect(getFirstParagraphFromHTML(inputBody)).toBe(expected)
 })
 
+test('getURLsFromHTML absolute', () => {
+  const inputURL = "https://crawler-test.com"
+  const inputBody = '<html><body><a href="/path/one"><span>Boot.dev</span></a></body></html>'
+  const expected = ["https://crawler-test.com/path/one"]
+  expect(getURLsFromHTML(inputBody, inputURL)).toStrictEqual(expected)
+})
+
+test('getURLsFromHTML external site', () => {
+  const inputURL = "https://crawler-test.com"
+  const inputBody = '<html><body><a href="https://www.boot.dev"><span>Boot.dev</span></a></body></html>'
+  const expected = ["https://www.boot.dev"]
+  expect(getURLsFromHTML(inputBody, inputURL)).toStrictEqual(expected)
+})
+
+test('getURLsFromHTML: no urls found, returns empty array', () => {
+  const inputURL = "https://crawler-test.com"
+  const inputBody = '<html><body><span>Hi</span></body></html>'
+  const expected = []
+  expect(getURLsFromHTML(inputBody, inputURL)).toStrictEqual(expected)
+})
+
+test('getURLsFromHTML: empty url found, returns empty array', () => {
+  const inputURL = "https://crawler-test.com"
+  const inputBody = '<html><body><a href="">Empty HREF</span></body></html>'
+  const expected = []
+  expect(getURLsFromHTML(inputBody, inputURL)).toStrictEqual(expected)
+})
 
 
+test('getImagesFromHTML: relative urls found, returns absolute urls', () => {
+  const inputURL = "https://crawler-test.com"
+  const inputBody = '<html><body><img src="/logo.png"></img></body></html>'
+  const expected = ["https://crawler-test.com/logo.png"]
+  expect(getImagesFromHTML(inputBody, inputURL)).toStrictEqual(expected)
+})
+
+test('getImagesFromHTML: no urls found, returns empty array', () => {
+  const inputURL = "https://crawler-test.com"
+  const inputBody = '<html><body><span>Hi</span></body></html>'
+  const expected = []
+  expect(getImagesFromHTML(inputBody, inputURL)).toStrictEqual(expected)
+})
+
+test('getImagesFromHTML: empty url found, returns empty array', () => {
+  const inputURL = "https://crawler-test.com"
+  const inputBody = '<html><body><img src=""></img></body></html>'
+  const expected = []
+  expect(getImagesFromHTML(inputBody, inputURL)).toStrictEqual(expected)
+})
 

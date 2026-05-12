@@ -3,12 +3,7 @@ import { JSDOM } from 'jsdom'
 export function normalizeURL(url: string): string {
 	let {hostname, pathname} = new URL(url)
 
-	let hasTrailingSlash = pathname[pathname.length - 1] == '/'
-	if (hasTrailingSlash) { 
-		pathname = pathname.slice(0, -1)
-	}
-
-	return `${hostname}${pathname}`
+	return `${hostname}${trimTrailingSlash(pathname)}`
 }
 
 export function getHeadingFromHTML(html: string): string {
@@ -41,3 +36,52 @@ export function getFirstParagraphFromHTML(html: string): string {
 	return ''
 }
 
+export function getURLsFromHTML(html: string, baseURL: string): string[] {
+	const dom = new JSDOM(html)
+	const aTags = Array.from(dom.window.document.querySelectorAll('a'))
+	if (aTags.length > 0) {
+		const strings = []
+		for (const a of aTags) {
+			if (!a.href) continue
+			try {
+				const url = new URL(a.href)
+				strings.push(trimTrailingSlash(url.toString()))
+			} catch {
+				const url = new URL(a.href, baseURL)
+				strings.push(trimTrailingSlash(url.toString()))
+			}
+		}
+		return strings
+	}
+	
+	return []
+}
+
+export function getImagesFromHTML(html: string, baseURL: string): string[] {
+	const dom = new JSDOM(html)
+	const imgTags = Array.from(dom.window.document.querySelectorAll('img'))
+	if (imgTags.length > 0) {
+		const strings = []
+		for (const img of imgTags) {
+			if (!img.src) continue
+			try {
+				const url = new URL(img.src)
+				strings.push(trimTrailingSlash(url.toString()))
+			} catch {
+				const url = new URL(img.src, baseURL)
+				strings.push(trimTrailingSlash(url.toString()))
+			}
+		}
+		return strings
+	}
+
+	return []	
+}
+
+function trimTrailingSlash(url: string): string {
+	let hasTrailingSlash = url[url.length - 1] == '/'
+	if (hasTrailingSlash) {
+		url = url.slice(0, -1)
+	}
+	return url
+}
