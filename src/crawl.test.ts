@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { normalizeURL, getHeadingFromHTML, getFirstParagraphFromHTML, getURLsFromHTML, getImagesFromHTML } from './crawl.js'
+import { normalizeURL, getHeadingFromHTML, getFirstParagraphFromHTML, getURLsFromHTML, getImagesFromHTML, extractPageData } from './crawl.js'
 
 test('normalize 1st url: https://www.boot.dev/blog/path/', () => {
   const url = 'https://www.boot.dev/blog/path/'
@@ -110,4 +110,26 @@ test('getImagesFromHTML: empty url found, returns empty array', () => {
   const expected = []
   expect(getImagesFromHTML(inputBody, inputURL)).toStrictEqual(expected)
 })
+
+test('extractPageData basic', () => {
+  const inputURL = "https://crawler-test.com"
+  const inputBody = `
+    <html><body>
+      <h1>Test Title</h1>
+      <p>This is the first paragraph.</p>
+      <a href="/link1">Link 1</a>
+      <img src="/image1.jpg" alt="Image 1">
+    </body></html>
+  `
+  const expected = {
+    url: "https://crawler-test.com",
+    heading: "Test Title",
+    first_paragraph: "This is the first paragraph.",
+    outgoing_links: ["https://crawler-test.com/link1"],
+    image_urls: ["https://crawler-test.com/image1.jpg"],
+  }
+
+  expect(extractPageData(inputBody, inputURL)).toStrictEqual(expected)
+})
+
 
