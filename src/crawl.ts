@@ -103,3 +103,35 @@ export function extractPageData(html: string, pageURL: string): ExtractedPageDat
 		image_urls: getImagesFromHTML(html, pageURL)
 	} 
 }
+
+export async function getHTML(url: string) {
+	const reqHeaders = new Headers();
+	reqHeaders.set("User-Agent", "BootCrawler/1.0")
+	try {
+		const response = await fetch(url, {
+			headers: reqHeaders
+		})
+
+		if (response.status >= 400) {
+			console.error(response.statusText)
+			return false
+		}
+		
+		const contentType = response.headers.get("Content-Type")
+		if (!contentType?.includes("text/html")) {
+			console.error(`Received ${response.headers.get("Content-Type")} when expecting "text/html"`)
+			return false
+		}
+		
+		const htmlString = await response.text();
+		const dom = new JSDOM(htmlString)
+		const body = dom.window.document.querySelector('body')
+		console.log(body.outerHTML)
+		return body.outerHTML
+	} catch (error) {
+		console.error(error)
+		return false
+	}
+}
+
+

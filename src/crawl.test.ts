@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { normalizeURL, getHeadingFromHTML, getFirstParagraphFromHTML, getURLsFromHTML, getImagesFromHTML, extractPageData } from './crawl.js'
+import { normalizeURL, getHeadingFromHTML, getFirstParagraphFromHTML, getURLsFromHTML, getImagesFromHTML, extractPageData, getHTML } from './crawl.js'
 
 test('normalize 1st url: https://www.boot.dev/blog/path/', () => {
   const url = 'https://www.boot.dev/blog/path/'
@@ -131,5 +131,27 @@ test('extractPageData basic', () => {
 
   expect(extractPageData(inputBody, inputURL)).toStrictEqual(expected)
 })
+
+test('getHTML: correct url, returns html body', async () => {
+  const inputURL = "https://wikipedia.org"
+  const expected = "body" 
+  const result = await getHTML(inputURL)
+  expect(result).toMatch(expected)
+})
+
+test('getHTML: correct url, wrong content-type', async () => {
+  const inputURL = "https://jsonplaceholder.typicode.com/todos/1"
+  const expected = false
+  const result = await getHTML(inputURL)
+  expect(result).toBe(false)
+})
+
+test('getHTML: response 404, return false', async () => {
+  const inputURL = "https://example.com/bestURL"
+  const expected = false 
+  const result = await getHTML(inputURL)
+  expect(result).toBe(expected)
+})
+
 
 
