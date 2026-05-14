@@ -126,7 +126,6 @@ export async function getHTML(url: string) {
 		const htmlString = await response.text();
 		const dom = new JSDOM(htmlString)
 		const body = dom.window.document.querySelector('body')
-		console.log(body.outerHTML)
 		return body.outerHTML
 	} catch (error) {
 		console.error(error)
@@ -134,4 +133,38 @@ export async function getHTML(url: string) {
 	}
 }
 
+export async function crawlPage(baseURL: string, currentURL: string = baseURL, pages: Record<string, number> = {}) {
+	const baseHostName = new URL(baseURL)?.hostname
+	const currentHostName = new URL(currentURL)?.hostname
+
+	if (baseHostName !== currentHostName) {
+		return pages
+	}
+
+	const normalizedCurrentURL = normalizeURL(currentURL)
+	if (normalizedCurrentURL in pages) {
+		pages[normalizedCurrentURL]++
+		return pages
+	}
+
+	pages[normalizedCurrentURL] = 1
+
+	console.log(`crawling ${currentURL} . . .`)
+
+	let html = ""
+	try {
+		html = await getHTML(currentURL)
+	} catch (error) {
+		console.error(`${(err as Error).message}`)
+		return pages
+	}
+
+	const urls = getURLsFromHTML(html, baseURL)
+	
+	for (const url of urls) {
+		await crawlPage(baseURL, url, pages)
+	}
+	
+	return pages
+}
 
