@@ -203,8 +203,17 @@ class ConcurrentCrawler {
 	}
 
 	public async crawl(): Promise<Record<string, ExtractedPageData>> {
-		await this.crawlPage(this.baseURL)
-		return this.pages
+		const rootTask = this.crawlPage(this.baseURL);
+		this.allTasks.add(rootTask);
+		
+		try {
+			await rootTask;
+		} finally {
+			this.allTasks.delete(rootTask);
+		}
+		
+		await Promise.allSettled(Array.from(this.allTasks));
+		return this.pages;
 	}
 }
 
