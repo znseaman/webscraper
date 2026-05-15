@@ -99,9 +99,9 @@ export function extractPageData(html: string, pageURL: string): ExtractedPageDat
 	return {
 		url: pageURL,
 		heading: getHeadingFromHTML(html),
-		first_paragraph: getFirstParagraphFromHTML(html),
-		outgoing_links: getURLsFromHTML(html, pageURL),
-		image_urls: getImagesFromHTML(html, pageURL)
+		firstParagraph: getFirstParagraphFromHTML(html),
+		outgoingLinks: getURLsFromHTML(html, pageURL),
+		imageURLs: getImagesFromHTML(html, pageURL)
 	}
 }
 
@@ -156,13 +156,13 @@ class ConcurrentCrawler {
 		const currentHostname = new URL(currentURL).hostname;
 		const baseHostname = new URL(this.baseURL).hostname;
 		if (currentHostname !== baseHostname) {
-			return false
+			return
 		}
 
 		const normalizedURL = normalizeURL(currentURL);
 
 		if (!this.addPageVisit(normalizedURL)) {
-			return false
+			return
 		}
 
 		console.log(`crawling ${currentURL} . . .`)
@@ -171,7 +171,7 @@ class ConcurrentCrawler {
 			html = await this.getHTML(currentURL)
 		} catch (err) {
 			console.log(`${(err as Error).message}`)
-			return false
+			return
 		}
 
 		const nextURLs = getURLsFromHTML(html, this.baseURL)
