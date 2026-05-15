@@ -1,5 +1,5 @@
 import { argv } from 'node:process';
-import { crawlPage } from './crawl.js'
+import { crawlSiteAsync } from './crawl.js'
 
 async function main() {
 	if (argv.length !== 3) {
@@ -10,7 +10,7 @@ async function main() {
 	const baseURL = argv[2]
 	console.log(`Starting crawler from ${baseURL}...`)
 
-	const result = await crawlPage(baseURL)
+	const result = await crawlSiteAsync(baseURL, 5)
 	
 	console.log(`\nCrawled Pages by Count:`)
 	console.log(JSON.stringify(result, null, 2))
