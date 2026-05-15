@@ -87,7 +87,7 @@ function trimTrailingSlash(url: string): string {
 	return url
 }
 
-type ExtractedPageData = {
+export type ExtractedPageData = {
 	url: string;
 	heading: string;
 	firstParagraph: string;
@@ -205,7 +205,7 @@ class ConcurrentCrawler {
 	public async crawl(): Promise<Record<string, ExtractedPageData>> {
 		const rootTask = this.crawlPage(this.baseURL);
 		this.allTasks.add(rootTask);
-		
+
 		try {
 			await rootTask;
 		} finally {
