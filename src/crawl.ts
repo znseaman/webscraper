@@ -109,14 +109,29 @@ class ConcurrentCrawler {
 	private baseURL: string;
 	private pages: Record<string, number>;
 	private limit: <T>(fn: () => Promise<T>) => Promise<T>;
+	private maxPages: number;
+	private shouldStop: boolean;
+	private allTasks: Set<Promise<void>>;
 
-	constructor(baseURL: string, maxConcurrency: number = 5) {
+	constructor(baseURL: string, maxConcurrency: number = 5, maxPages: number = 10) {
 		this.baseURL = baseURL
 		this.pages = {};
 		this.limit = pLimit(maxConcurrency)
+		this.maxPages = maxPages
+		this.shouldStop = false
+		this.allTasks = new Set()
 	}
 
 	private addPageVisit(normalizedURL: string): boolean {
+		if (this.shouldStop) return false
+
+		const currentUniquePages = Object.keys(this.pages).length
+		if (Object.keys(this.pages).length == this.maxPages) {
+			this.shouldStop = true
+			console.log(`Reached maximum number of ${this.maxPages} to crawl.`)
+			return false
+		}
+
 		if (this.pages[normalizedURL]) {
 			this.pages[normalizedURL]++;
 			return false
@@ -137,6 +152,8 @@ class ConcurrentCrawler {
 				});
 			} catch (err) {
 				throw new Error(`Got Network error: ${(err as Error).message}`)
+			} finally {
+				this.allTasks.delete(currentURL)
 			}
 
 			if (res.status > 399) {
@@ -153,6 +170,8 @@ class ConcurrentCrawler {
 	}
 
 	private async crawlPage(currentURL: string): Promise<void> {
+		if (this.shouldStop) return
+
 		const currentHostname = new URL(currentURL).hostname;
 		const baseHostname = new URL(this.baseURL).hostname;
 		if (currentHostname !== baseHostname) {
@@ -176,9 +195,11 @@ class ConcurrentCrawler {
 
 		const nextURLs = getURLsFromHTML(html, this.baseURL)
 
-		const crawlPromises = nextURLs.map((nextURL) => this.crawlPage(nextURL))
+		for (const nextURL of nextURLs) {
+			this.allTasks.add({[nextURL]: this.crawlPage(nextURL)})
+		}
 
-		await Promise.all(crawlPromises)
+		await Promise.all(this.allTasks.values())
 	}
 
 	public async crawl(): Promise<Record<string, number>> {
@@ -187,8 +208,8 @@ class ConcurrentCrawler {
 	}
 }
 
-export async function crawlSiteAsync(baseURL: string, maxConcurrency: number = 5) {
-	const crawler = new ConcurrentCrawler(baseURL, maxConcurrency)
+export async function crawlSiteAsync(baseURL: string, maxConcurrency: number = 5, maxPages: number = 10) {
+	const crawler = new ConcurrentCrawler(baseURL, maxConcurrency, maxPages)
 	return await crawler.crawl()
 }
 
