@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "tsx ./src/index.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test_dev": "vitest -w run"
   },
   "keywords": [],
   "author": "",

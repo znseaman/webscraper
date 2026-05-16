@@ -105,6 +105,30 @@ export function extractPageData(html: string, pageURL: string): ExtractedPageDat
 	}
 }
 
+export async function getHTML(currentURL: string) {
+	const headers = new Headers({"User-Agent": "BootCrawler/1.0"});
+
+	let res: Response;
+	try {
+		res = await fetch(currentURL, {
+			headers
+		});
+	} catch (err) {
+		throw new Error(`Got Network error: ${(err as Error).message}`)
+	}
+
+	if (res.status > 399) {
+		throw new Error(`Got HTTP error: ${res.status} ${res.statusText}`)
+	}
+
+	const contentType = res.headers.get("content-type");
+	if (!contentType || !contentType.includes("text/html")) {
+		throw new Error(`Got non-HTML response: ${contentType}`)
+	}
+
+	return res.text();
+}
+
 class ConcurrentCrawler {
 	private baseURL: string;
 	private pages: Record<string, ExtractedPageData>;
@@ -138,27 +162,7 @@ class ConcurrentCrawler {
 
 	private async getHTML(currentURL: string): Promise<string> {
 		return await this.limit(async () => {
-			const headers = new Headers({"User-Agent": "BootCrawler/1.0"});
-
-			let res: Response;
-			try {
-				res = await fetch(currentURL, {
-					headers 
-				});
-			} catch (err) {
-				throw new Error(`Got Network error: ${(err as Error).message}`)
-			}
-
-			if (res.status > 399) {
-				throw new Error(`Got HTTP error: ${res.status} ${res.statusText}`)
-			}
-
-			const contentType = res.headers.get("content-type");
-			if (!contentType || !contentType.includes("text/html")) {
-				throw new Error(`Got non-HTML response: ${contentType}`)
-			}
-
-			return res.text();
+			return await getHTML(currentURL)
 		})
 	}
 
