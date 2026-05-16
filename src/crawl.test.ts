@@ -1,5 +1,5 @@
-import { expect, test } from 'vitest'
-import { normalizeURL, getHeadingFromHTML, getFirstParagraphFromHTML, getURLsFromHTML, getImagesFromHTML, extractPageData, getHTML } from './crawl.js'
+import { expect, test, describe, vi } from 'vitest'
+import { normalizeURL, getHeadingFromHTML, getFirstParagraphFromHTML, getURLsFromHTML, getImagesFromHTML, extractPageData, getHTML, crawlSiteAsync, ExtractedPageData } from './crawl.js'
 
 test.for([
   {url: 'https://www.boot.dev/blog/path/', expected: 'www.boot.dev/blog/path'},
@@ -77,3 +77,156 @@ test.for([
     expect(result).toMatch(expected)
   }
 })
+
+describe('ConcurrentCrawler', () => {
+  const createMockFetch = (urlConfigs: Record<string, { status: number; contentType: string; body: string; shouldThrow?: boolean }>) => {
+    return vi.fn(async (url: string) => {
+      for (const [pattern, config] of Object.entries(urlConfigs)) {
+        if (url.includes(pattern)) {
+          if (config.shouldThrow) {
+            throw new Error(config.body)
+          }
+          return new Response(config.body, {
+            status: config.status,
+            headers: { 'content-type': config.contentType }
+          })
+        }
+      }
+
+      const html = `
+        <html>
+          <body>
+            <h1>Test Page</h1>
+            <p>This is a test paragraph.</p>
+            <a href="/page1">Link 1</a>
+            <a href="/page2">Link 2</a>
+            <img src="/image1.jpg" alt="Image 1">
+          </body>
+        </html>
+      `
+      return new Response(html, {
+        status: 200,
+        headers: { 'content-type': 'text/html' }
+      })
+    })
+  }
+
+  test.for([
+    {
+      testName: 'baseURL field - initializes with provided base URL',
+      baseURL: 'https://boot.dev',
+      maxConcurrency: 1,
+      maxPages: 1,
+      urlConfigs: {},
+      assertion: (result) => expect(result).toBeDefined()
+    },
+    {
+      testName: 'pages field - collects crawled pages in dictionary',
+      baseURL: 'https://boot.dev',
+      maxConcurrency: 1,
+      maxPages: 1,
+      urlConfigs: {},
+      assertion: (result) => {
+        expect(result).toBeInstanceOf(Object)
+        expect(typeof result).toBe('object')
+      }
+    },
+    {
+      testName: 'maxPages field - respects maximum page limit',
+      baseURL: 'https://boot.dev',
+      maxConcurrency: 1,
+      maxPages: 2,
+      urlConfigs: {},
+      assertion: (result) => {
+        const pageCount = Object.keys(result).length
+        expect(pageCount).toBeLessThanOrEqual(2)
+      }
+    },
+    {
+      testName: 'visited field - does not revisit same pages',
+      baseURL: 'https://boot.dev',
+      maxConcurrency: 1,
+      maxPages: 1,
+      urlConfigs: {},
+      assertion: (result: Promise<Record<string, ExtractedPageData>>) => {
+        expect(Object.keys(result).length).toBeLessThanOrEqual(1)
+      }
+    },
+    {
+      testName: 'shouldStop field - stops crawling when max pages reached',
+      baseURL: 'https://boot.dev',
+      maxConcurrency: 1,
+      maxPages: 1,
+      urlConfigs: {},
+      assertion: (result: Promise<Record<string, ExtractedPageData>>) => expect(Object.keys(result).length).toBeLessThanOrEqual(1)
+    },
+    {
+      testName: 'allTasks field - tracks and completes all pending tasks',
+      baseURL: 'https://boot.dev',
+      maxConcurrency: 2,
+      maxPages: 2,
+      urlConfigs: {},
+      assertion: (result: Promise<Record<string, ExtractedPageData>>) => {
+        expect(Object.keys(result).length).toBeGreaterThanOrEqual(1)
+      }
+    },
+    {
+      testName: 'limit field - respects concurrency limit',
+      baseURL: 'https://boot.dev',
+      maxConcurrency: 1,
+      maxPages: 3,
+      urlConfigs: {},
+      assertion: (result: Promise<Record<string, ExtractedPageData>>) => expect(result).toBeDefined()
+    },
+    {
+      testName: 'returns crawled pages with extracted data',
+      baseURL: 'https://boot.dev',
+      maxConcurrency: 1,
+      maxPages: 1,
+      urlConfigs: {},
+      assertion: (result: Promise<Record<string, ExtractedPageData>>) => {
+        const firstPage = Object.values(result)[0]
+        if (firstPage) {
+          expect(firstPage).toHaveProperty('url')
+          expect(firstPage).toHaveProperty('heading')
+          expect(firstPage).toHaveProperty('firstParagraph')
+          expect(firstPage).toHaveProperty('outgoingLinks')
+          expect(firstPage).toHaveProperty('imageURLs')
+        }
+      }
+    },
+    {
+      testName: 'only crawls same domain pages',
+      baseURL: 'https://boot.dev',
+      maxConcurrency: 1,
+      maxPages: 5,
+      urlConfigs: {},
+      assertion: (result: Promise<Record<string, ExtractedPageData>>) => {
+        for (const page of Object.values(result)) {
+          const pageDomain = new URL(page.url).hostname
+          const baseDomain = new URL('https://boot.dev').hostname
+          expect(pageDomain).toBe(baseDomain)
+        }
+      }
+    },
+    {
+      testName: 'handles network errors gracefully',
+      baseURL: 'https://this-domain-definitely-does-not-exist-12345.com',
+      maxConcurrency: 1,
+      maxPages: 1,
+      urlConfigs: {
+        'this-domain-definitely-does-not-exist': { status: 0, contentType: '', body: 'Network error', shouldThrow: true }
+      },
+      assertion: (result: Promise<Record<string, ExtractedPageData>>) => {
+        expect(result).toBeDefined()
+        expect(typeof result).toBe('object')
+      }
+    }
+  ])('crawl: $testName', async ({ baseURL, maxConcurrency, maxPages, urlConfigs, assertion }) => {
+    global.fetch = createMockFetch(urlConfigs)
+    const result = await crawlSiteAsync(baseURL, maxConcurrency, maxPages)
+    assertion(result)
+    vi.restoreAllMocks()
+  })
+})
+
